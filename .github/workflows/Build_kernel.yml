@@ -32,16 +32,6 @@ jobs:
     - name: Checkout kernel source (with config)
       uses: actions/checkout@v4
 
-    - name: Verify kernel config exists
-      run: |
-        echo "Checking for config file at: $KERNEL_SRC_DIR/$CONFIG_FILE"
-        if [ ! -f "$KERNEL_SRC_DIR/$CONFIG_FILE" ]; then
-          echo "ERROR: Config file $CONFIG_FILE not found in kernel source!"
-          ls -la "$KERNEL_SRC_DIR"
-          exit 1
-        fi
-        echo "Config file found successfully"
-
     - name: Install cross-compilation tools
       run: |
         sudo apt-get update -y
@@ -91,7 +81,7 @@ jobs:
         cd "$KERNEL_SRC_DIR"
         make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$THREADS dtbs
         mkdir -p "$BUILD_DIR/dtb"
-        cp arch/arm64/boot/dts/amlogic/*.dtb "$BUILD_DIR/dtb/"
+        cp arch/arm64/boot/dts/rockchip/*.dtb "$BUILD_DIR/dtb/"
 
     - name: Build kernel modules
       if: ${{ inputs.enable_modules }}
