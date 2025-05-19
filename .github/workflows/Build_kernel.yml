@@ -20,7 +20,7 @@ env:
   CROSS_COMPILE: aarch64-linux-gnu-
   THREADS: $(nproc)
   BUILD_DIR: ${{ github.workspace }}/build
-  KERNEL_SRC_DIR: ${{ github.workspace }}/linux-6.1.y
+  KERNEL_SRC_DIR: ${{ github.workspace }}
   CONFIG_FILE: config-6.1  # 使用内核源码仓库内的配置文件
 
 jobs:
