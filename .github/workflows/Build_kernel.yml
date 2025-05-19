@@ -15,13 +15,13 @@ on:
         type: boolean
 
 env:
-  KERNEL_VERSION: 6.1.y
+  KERNEL_VERSION: 6.1
   ARCH: arm64
   CROSS_COMPILE: aarch64-linux-gnu-
   THREADS: $(nproc)
   BUILD_DIR: ${{ github.workspace }}/build
   CONFIG_REPO: zj2004/amlogic-s9xxx-armbian
-  CONFIG_PATH: compile-kernel/tools/config/config-6.1
+  CONFIG_PATH: compile-kernel/tools/config/config-$KERNEL_VERSION
 
 jobs:
   build_kernel:
