@@ -31,10 +31,6 @@ jobs:
     steps:
     - name: Checkout kernel source (with config)
       uses: actions/checkout@v4
-      with:
-        repository: zj2004/linux-6.1.y
-        path: ${{ env.KERNEL_SRC_DIR }}
-        ref: ${{ env.KERNEL_VERSION }}
 
     - name: Verify kernel config exists
       run: |
