@@ -22,7 +22,7 @@ env:
   BUILD_DIR: ${{ github.workspace }}/build
   CONFIG_REPO: zj2004/amlogic-s9xxx-armbian
   CONFIG_PATH: compile-kernel/tools/config/config-6.1
-  KERNEL_SRC_DIR: ${{ github.workspace }}/linux-${{ env.KERNEL_VERSION }}
+  KERNEL_SRC_DIR: ${{ github.workspace }}/linux-6.1.y
 
 jobs:
   build_kernel:
