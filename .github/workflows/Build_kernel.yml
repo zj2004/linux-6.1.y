@@ -1,0 +1,161 @@
+name: Build ARM64 Linux 6.1 Kernel for Amlogic
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_modules:
+        description: "Build kernel modules"
+        required: false
+        default: true
+        type: boolean
+      enable_debug:
+        description: "Enable debug symbols"
+        required: false
+        default: false
+        type: boolean
+
+env:
+  KERNEL_VERSION: 6.1.y
+  ARCH: arm64
+  CROSS_COMPILE: aarch64-linux-gnu-
+  THREADS: $(nproc)
+  BUILD_DIR: ${{ github.workspace }}/build
+  CONFIG_REPO: zj2004/amlogic-s9xxx-armbian
+  CONFIG_PATH: compile-kernel/tools/config/config-6.1
+
+jobs:
+  build_kernel:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+    - name: Checkout kernel source
+      uses: actions/checkout@v4
+      with:
+        repository: zj2004/linux-6.1.y
+        path: linux-$KERNEL_VERSION
+
+    - name: Get kernel config
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ env.CONFIG_REPO }}
+        path: config-repo
+        sparse-checkout: ${{ env.CONFIG_PATH }}
+        fetch-depth: 1
+
+    - name: Install cross-compilation tools
+      run: |
+        sudo apt-get update -y
+        sudo apt-get install -y \
+          build-essential \
+          libncurses-dev \
+          bison \
+          flex \
+          libssl-dev \
+          libelf-dev \
+          bc \
+          git \
+          wget \
+          xz-utils \
+          cpio \
+          python3 \
+          gcc-aarch64-linux-gnu \
+          binutils-aarch64-linux-gnu
+
+    - name: Setup kernel config
+      run: |
+        mkdir -p $BUILD_DIR
+        cd linux-$KERNEL_VERSION
+        cp ../config-repo/$CONFIG_PATH .config
+        
+        # Apply debug config if enabled
+        if ${{ inputs.enable_debug }}; then
+          ./scripts/config --enable DEBUG_INFO \
+                          --enable DEBUG_KERNEL \
+                          --enable DEBUG_DRIVER
+        fi
+        
+        make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE olddefconfig
+        make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE menuconfig
+
+    - name: Build kernel image
+      run: |
+        cd linux-$KERNEL_VERSION
+        make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$THREADS Image.gz modules_prepare
+        cp arch/arm64/boot/Image.gz $BUILD_DIR/
+        cp System.map $BUILD_DIR/
+        cp .config $BUILD_DIR/config
+
+    - name: Build device tree blobs
+      run: |
+        cd linux-$KERNEL_VERSION
+        make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$THREADS dtbs
+        mkdir -p $BUILD_DIR/dtb
+        cp arch/arm64/boot/dts/amlogic/*.dtb $BUILD_DIR/dtb/
+
+    - name: Build kernel modules
+      if: ${{ inputs.enable_modules }}
+      run: |
+        cd linux-$KERNEL_VERSION
+        make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$THREADS modules
+        make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE INSTALL_MOD_PATH=$BUILD_DIR modules_install
+        find $BUILD_DIR/lib/modules -name "*.ko" -exec strip --strip-debug {} \;
+        tar -czvf $BUILD_DIR/modules.tar.gz -C $BUILD_DIR/lib/modules .
+
+    - name: Package artifacts
+      run: |
+        cd $BUILD_DIR
+        # Create flashable package
+        tar -czvf amlogic-kernel-$KERNEL_VERSION-arm64.tar.gz \
+          Image.gz \
+          dtb/ \
+          config \
+          System.map
+        
+        # Create separate modules package if built
+        if [ -f modules.tar.gz ]; then
+          tar -czvf amlogic-modules-$KERNEL_VERSION-arm64.tar.gz modules.tar.gz
+        fi
+        
+        echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+        echo "RELEASE_TAG=amlogic-kernel-$KERNEL_VERSION-$(date +%Y%m%d)" >> $GITHUB_ENV
+        echo "RELEASE_NAME=Amlogic Linux $KERNEL_VERSION Kernel (ARM64)" >> $GITHUB_ENV
+
+    - name: Create Release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ env.RELEASE_TAG }}
+        name: ${{ env.RELEASE_NAME }}
+        body: |
+          ### Amlogic S9xxx ARM64 Kernel
+          **Source**: zj2004/linux-6.1  
+          **Config**: ${{ env.CONFIG_REPO }}/${{ env.CONFIG_PATH }}  
+          **Build date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")  
+          **Features**:
+          - Kernel version: ${{ env.KERNEL_VERSION }}
+          - Modules included: ${{ inputs.enable_modules }}
+          - Debug symbols: ${{ inputs.enable_debug }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Kernel Package
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: $BUILD_DIR/amlogic-kernel-$KERNEL_VERSION-arm64.tar.gz
+        asset_name: amlogic-kernel-$KERNEL_VERSION-arm64.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload Modules Package
+      if: ${{ inputs.enable_modules }}
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: $BUILD_DIR/amlogic-modules-$KERNEL_VERSION-arm64.tar.gz
+        asset_name: amlogic-modules-$KERNEL_VERSION-arm64.tar.gz
+        asset_content_type: application/gzip
