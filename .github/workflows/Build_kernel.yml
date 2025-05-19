@@ -20,9 +20,8 @@ env:
   CROSS_COMPILE: aarch64-linux-gnu-
   THREADS: $(nproc)
   BUILD_DIR: ${{ github.workspace }}/build
-  CONFIG_REPO: zj2004/amlogic-s9xxx-armbian
-  CONFIG_PATH: compile-kernel/tools/config/config-6.1
   KERNEL_SRC_DIR: ${{ github.workspace }}/linux-6.1.y
+  CONFIG_FILE: config-6.1  # 使用内核源码仓库内的配置文件
 
 jobs:
   build_kernel:
@@ -30,42 +29,22 @@ jobs:
     timeout-minutes: 180
 
     steps:
-    - name: Checkout kernel source
+    - name: Checkout kernel source (with config)
       uses: actions/checkout@v4
       with:
         repository: zj2004/linux-6.1.y
         path: ${{ env.KERNEL_SRC_DIR }}
-        ref: ${{ env.KERNEL_VERSION }}  # 确保检出正确的分支
+        ref: ${{ env.KERNEL_VERSION }}
 
-    - name: Get kernel config
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ env.CONFIG_REPO }}
-        path: config-repo
-        sparse-checkout: ${{ env.CONFIG_PATH }}
-        fetch-depth: 1
-
-    - name: Verify directory structure
+    - name: Verify kernel config exists
       run: |
-        echo "Workspace contents:"
-        ls -la
-        echo "Kernel source expected at: $KERNEL_SRC_DIR"
-        if [ -d "$KERNEL_SRC_DIR" ]; then
-          echo "Kernel source directory exists"
+        echo "Checking for config file at: $KERNEL_SRC_DIR/$CONFIG_FILE"
+        if [ ! -f "$KERNEL_SRC_DIR/$CONFIG_FILE" ]; then
+          echo "ERROR: Config file $CONFIG_FILE not found in kernel source!"
           ls -la "$KERNEL_SRC_DIR"
-        else
-          echo "ERROR: Kernel source directory missing!"
           exit 1
         fi
-
-        echo "Config repo contents:"
-        ls -la config-repo
-        if [ -f "config-repo/$CONFIG_PATH" ]; then
-          echo "Config file found"
-        else
-          echo "ERROR: Config file missing at config-repo/$CONFIG_PATH"
-          exit 1
-        fi
+        echo "Config file found successfully"
 
     - name: Install cross-compilation tools
       run: |
@@ -91,8 +70,8 @@ jobs:
         mkdir -p "$BUILD_DIR"
         cd "$KERNEL_SRC_DIR"
         
-        # Copy config file
-        cp "../config-repo/$CONFIG_PATH" .config
+        # Use the config file from kernel source tree
+        cp "$CONFIG_FILE" .config
         
         # Apply debug config if enabled
         if ${{ inputs.enable_debug }}; then
@@ -116,7 +95,7 @@ jobs:
         cd "$KERNEL_SRC_DIR"
         make ARCH=$ARCH CROSS_COMPILE=$CROSS_COMPILE -j$THREADS dtbs
         mkdir -p "$BUILD_DIR/dtb"
-        cp arch/arm64/boot/dts/rockchip/*.dtb "$BUILD_DIR/dtb/"
+        cp arch/arm64/boot/dts/amlogic/*.dtb "$BUILD_DIR/dtb/"
 
     - name: Build kernel modules
       if: ${{ inputs.enable_modules }}
@@ -151,7 +130,7 @@ jobs:
         body: |
           ### Amlogic S9xxx ARM64 Kernel
           **Source**: zj2004/linux-6.1.y  
-          **Config**: ${{ env.CONFIG_REPO }}/${{ env.CONFIG_PATH }}  
+          **Config**: Using $CONFIG_FILE from source repository  
           **Build date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")  
           **Features**:
           - Kernel version: 6.1.y
