@@ -140,9 +140,6 @@
 			"Speaker", "Speaker Amplifier OUTL",
 			"Speaker", "Speaker Amplifier OUTR";
 
-		#simple-audio-card,aux-devs = <&speaker_amp>;
-		#simple-audio-card,pin-switches = "Speaker";
-
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0>;
 		};
@@ -714,7 +711,7 @@
 &usbdrd_dwc3_0 {
 	status = "okay";
 	dr_mode = "otg";
-	phys = <&u2phy0_otg>, <&usbdp_phy0>;
+	phys = <&u2phy0_otg>;
 	phy-names = "usb2-phy", "usb3-phy";
 };
 
