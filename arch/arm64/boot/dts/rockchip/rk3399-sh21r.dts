@@ -443,25 +443,33 @@
 };
 
 &i2c1 {
-	i2c-scl-rising-time-ns = <300>;
-	i2c-scl-falling-time-ns = <15>;
-	status = "okay";
+    es8316: codec@10 {
+        compatible = "everest,es8316";
+        reg = <0x10>;
+        clocks = <&cru SCLK_I2S_8CH_OUT>;
+        clock-names = "mclk";
+        #sound-dai-cells = <0>;
 
-	es8316: audio-codec@10 {
-		compatible = "everest,es8316";
-		reg = <0x10>;
-		clocks = <&cru SCLK_I2S_8CH_OUT>;
-		clock-names = "mclk";
-		#sound-dai-cells = <0>;
-	};
+        port {
+            es8316_p0_0: endpoint {
+                remote-endpoint = <&i2s0_p0_0>;
+            };
+        };
+    };
 };
 
 &i2s0 {
-	rockchip,playback-channels = <8>;
-	rockchip,capture-channels = <8>;
-	status = "okay";
-    pinctrl-names = "default";
-    pinctrl-0 = <&i2s0_8ch_bus &i2s0_8ch_mclk>;
+    rockchip,playback-channels = <2>;
+    rockchip,capture-channels = <2>;
+    status = "okay";
+
+    i2s0_p0: port {
+        i2s0_p0_0: endpoint {
+            dai-format = "i2s";
+            mclk-fs = <256>;
+            remote-endpoint = <&es8316_p0_0>;
+        };
+    };
 };
 
 &i2s1 {
@@ -550,25 +558,6 @@
 				<4 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
-
-    i2s0 {
-        i2s0_8ch_bus: i2s0-8ch-bus {
-            rockchip,pins =
-                <3 RK_PD0 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD1 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD2 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD3 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD4 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD5 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD6 RK_FUNC_1 &pcfg_pull_none>,
-                <3 RK_PD7 RK_FUNC_1 &pcfg_pull_none>;
-        };
-
-        i2s0_8ch_mclk: i2s-8ch-mclk {
-            rockchip,pins =
-                <4 RK_PA0 RK_FUNC_1 &pcfg_pull_none>;
-        };
-    };
 };
 
 &pwm2 {
